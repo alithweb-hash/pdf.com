@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>محرر كتب PDF الأكاديمية — الغلاف والترويسة والتذييل واسم التدريسي والعلامة المائية</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="navbar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
+      <div>
+        <h1>محرر كتب PDF الأكاديمية</h1>
+        <p class="brand-sub">إضافة الغلاف، ترويسة بـ لوكو وسط وسطرين يمين/يسار، ترقيم التذييل، استبدال التدريسي، وإزالة العلامة المائية</p>
+      </div>
+    </div>
+
+    <div id="fileBadgeArea" class="file-badge-area hidden">
+      <div class="file-pill">
+        <span class="file-dot"></span>
+        <span id="navFileName" class="file-name"></span>
+        <span id="navPageCount" class="page-count-tag"></span>
+      </div>
+      <button id="btnNewFile" class="btn btn-ghost btn-sm" type="button">
+        رفع ملف آخر
+      </button>
+    </div>
+  </header>
+
+  <!-- Landing / Upload Section -->
+  <main id="uploadSection" class="upload-section">
+    <div class="upload-hero">
+      <div id="dropZone" class="drop-zone">
+        <input type="file" id="pdfInput" accept=".pdf,application/pdf" hidden />
+        <div class="upload-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <h2>ارفع كتاب أو ملزمة الـ PDF هنا</h2>
+        <p>اسحب الملف وأفلته هنا، أو اضغط لاختيار ملف من جهازك</p>
+        <button id="btnSelectFile" class="btn btn-primary btn-lg" type="button">
+          اختيار ملف PDF
+        </button>
+        <div id="uploadProgress" class="upload-progress hidden">
+          <div class="spinner"></div>
+          <span>جاري رفع وتحليل ملف الـ PDF واكتشاف الترويسة والعلامات المائية...</span>
+        </div>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon accent-rose">غ</div>
+          <h3>الورقة الأولى (الغلاف)</h3>
+          <p>إنشاء أو استبدال ورقة أولى مخصصة بشعار الجامعة، اسم المادة، اسم التدريسي، وإطار أنيق.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon accent-blue">T</div>
+          <h3>ترويسة بشعار وسطرين</h3>
+          <p>رفع شعار (لوكو) في وسط الترويسة مع كتابة بسطرين على اليمين واليسار وخط فاصل.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon accent-purple">1</div>
+          <h3>تذييل وترقيم الصفحات</h3>
+          <p>ترقيم تلقائي مرن (أرقام عادية أو عربية ١، ٢، ٣) مع نصوص إضافية واختيار بداية الترقيم.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon accent-emerald">أ</div>
+          <h3>اسم التدريسي والعلامة المائية</h3>
+          <p>استبدال اسم التدريسي في كل الصفحات وكشف وإزالة العلامات المائية النصية والصور تلقائياً.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Editor Workspace -->
+  <main id="editorSection" class="editor-section hidden">
+    <!-- Controls Sidebar -->
+    <aside class="controls-panel">
+      <!-- Navigation Tabs (5 tabs) -->
+      <div class="tabs-bar tabs-5" role="tablist">
+        <button class="tab-btn active" data-tab="header" type="button">
+          <span>الترويسة</span>
+          <span class="tab-indicator" id="indHeader"></span>
+        </button>
+        <button class="tab-btn" data-tab="cover" type="button">
+          <span>الغلاف</span>
+          <span class="tab-indicator" id="indCover"></span>
+        </button>
+        <button class="tab-btn" data-tab="footer" type="button">
+          <span>التذييل</span>
+          <span class="tab-indicator" id="indFooter"></span>
+        </button>
+        <button class="tab-btn" data-tab="lecturer" type="button">
+          <span>التدريسي</span>
+          <span class="tab-indicator" id="indLecturer"></span>
+        </button>
+        <button class="tab-btn" data-tab="watermark" type="button">
+          <span>العلامة</span>
+          <span class="tab-indicator" id="indWatermark"></span>
+        </button>
+      </div>
+
+      <!-- Tab Panels Container -->
+      <div class="tabs-content">
+
+        <!-- TAB 1: HEADER (2 lines Right + Center Logo + 2 lines Left) -->
+        <section id="tab-header" class="tab-pane active">
+          <div class="switch-card">
+            <div>
+              <h3>تفعيل تعديل الترويسة (Header)</h3>
+              <p>شعار (لوكو) بالوسط وكتابة بسطرين يميناً ويساراً مع خط فاصل</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="headerEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div id="detectedHeaderBox" class="detected-box hidden">
+            <div class="detected-title">ترويسة متكررة تم اكتشافها في الملف:</div>
+            <div id="detectedHeaderText" class="detected-text"></div>
+          </div>
+
+          <!-- Center Logo Upload Card -->
+          <div class="section-box">
+            <div class="section-box-title">وسط الترويسة — شعار الجامعة / اللوكو</div>
+            <div class="logo-upload-row">
+              <div class="logo-preview-box" id="headerLogoPreviewBox">
+                <img id="headerLogoPreviewImg" class="hidden" alt="شعار الترويسة" />
+                <span id="headerLogoPlaceholder">لا يوجد لوكو</span>
+              </div>
+              <div class="logo-upload-actions">
+                <input type="file" id="headerLogoInput" accept="image/png,image/jpeg,image/webp,image/bmp" hidden />
+                <button type="button" id="btnUploadHeaderLogo" class="btn btn-secondary btn-sm">
+                  رفع شعار (لوكو)
+                </button>
+                <button type="button" id="btnRemoveHeaderLogo" class="btn btn-danger-ghost hidden">
+                  حذف الشعار
+                </button>
+                <small class="hint">يدعم PNG (بخلفية شفافة) و JPG</small>
+              </div>
+            </div>
+
+            <div class="form-group mt-sm" id="headerLogoSizeWrap">
+              <div class="label-row">
+                <label for="headerLogoSize">حجم الشعار (بالنقطة pt)</label>
+                <span id="headerLogoSizeVal" class="val-badge">54 pt</span>
+              </div>
+              <input type="range" id="headerLogoSize" min="24" max="110" value="54" />
+            </div>
+
+            <div class="form-group mt-sm" id="headerCenterFallbackWrap">
+              <label for="headerCenter">نص وسط الترويسة (اختياري — يظهر فقط عند عدم رفع لوكو)</label>
+              <input type="text" id="headerCenter" placeholder="اتركه فارغاً عند رفع شعار في الوسط" />
+            </div>
+          </div>
+
+          <!-- Right Side: 2 Lines -->
+          <div class="section-box">
+            <div class="section-box-title">يمين الترويسة (سطران)</div>
+            <div class="form-group">
+              <label for="headerRightLine1">السطر الأول (يمين)</label>
+              <input type="text" id="headerRightLine1" placeholder="مثال: جامعة الامام جعفر الصادق (ع) / فرع المثنى" />
+            </div>
+            <div class="form-group">
+              <label for="headerRightLine2">السطر الثاني (يمين)</label>
+              <input type="text" id="headerRightLine2" placeholder="مثال: قسم هندسة تقنيات الاجهزة الطبية" />
+            </div>
+          </div>
+
+          <!-- Left Side: 2 Lines -->
+          <div class="section-box">
+            <div class="section-box-title">يسار الترويسة (سطران)</div>
+            <div class="form-group">
+              <label for="headerLeftLine1">السطر الأول (يسار)</label>
+              <input type="text" id="headerLeftLine1" placeholder="مثال: المادة: C++ programming" />
+            </div>
+            <div class="form-group">
+              <label for="headerLeftLine2">السطر الثاني (يسار)</label>
+              <input type="text" id="headerLeftLine2" placeholder="مثال: التدريسي: م.م رنا علي ذويب" />
+            </div>
+          </div>
+
+          <!-- Dimensions & Styling -->
+          <div class="form-group">
+            <label class="checkbox-row">
+              <input type="checkbox" id="headerCoverOld" checked />
+              <span>مسح / تغطية منطقة الترويسة القديمة</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label for="headerHeight">ارتفاع منطقة الترويسة (pt)</label>
+              <span id="headerHeightVal" class="val-badge">76 pt</span>
+            </div>
+            <input type="range" id="headerHeight" min="35" max="160" value="76" />
+            <small class="hint">لاحظ الخط الأزرق المتقطع على معاينة الصفحة لتحديد ارتفاع الترويسة.</small>
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label for="headerFontSize">حجم الخط</label>
+              <input type="number" id="headerFontSize" min="7" max="24" value="11" />
+            </div>
+            <div class="form-group">
+              <label for="headerColor">لون النص</label>
+              <input type="color" id="headerColor" value="#000000" />
+            </div>
+            <div class="form-group">
+              <label for="headerBgColor">لون الخلفية</label>
+              <input type="color" id="headerBgColor" value="#ffffff" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="headerSideAlign">محاذاة السطرين في اليمين واليسار</label>
+              <select id="headerSideAlign">
+                <option value="center" selected>توسيط داخل كل جهة (مثل النموذج)</option>
+                <option value="edge">محاذاة للحافة (يمين / يسار)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="headerDividerWidth">سماكة الخط الفاصل (pt)</label>
+              <input type="number" id="headerDividerWidth" min="0.5" max="5" step="0.5" value="2" />
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <label class="checkbox-row">
+              <input type="checkbox" id="headerBold" checked />
+              <span>خط عريض</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="headerDivider" checked />
+              <span>خط فاصل</span>
+            </label>
+            <div class="form-group">
+              <label for="headerDividerColor">لون الخط</label>
+              <input type="color" id="headerDividerColor" value="#000000" />
+            </div>
+          </div>
+
+          <!-- Smart Old Lecture Header Removal -->
+          <div class="section-box">
+            <div class="section-box-title">تنظيف ذكي لترويسة المحاضرة القديمة</div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="headerSmartCleanOld" checked />
+              <span>إزالة ذكية للترويسة القديمة (مثل: رقم المحاضرة، الجامعة، التدريسي) لتبدأ المحاضرة من أول تعريف فقط</span>
+            </label>
+            <div class="form-group mt-sm">
+              <label for="headerStartFromText">أو ابدأ الصفحة الأولى من عبارة محددة (اختياري)</label>
+              <input type="text" id="headerStartFromText" placeholder="تلقائي — أو اكتب بداية التعريف مثل: متسلسلة فورييه" />
+              <small class="hint">عند تركه فارغاً يُزيل النظام تلقائياً أي ترويسة قديمة أو سطر رقم المحاضرة وخطه الفاصل حتى بداية أول عنوان/تعريف.</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-row">
+              <input type="checkbox" id="headerSkipFirst" checked />
+              <span>لا تبدأ الترويسة من أول صفحة (تجاوز صفحة 1 من الملف)</span>
+            </label>
+          </div>
+
+          <div class="grid-2 mt-sm">
+            <div class="form-group">
+              <label for="headerStartPage">من صفحة</label>
+              <input type="number" id="headerStartPage" min="1" value="1" />
+            </div>
+            <div class="form-group">
+              <label for="headerEndPage">إلى صفحة (فارغ = النهاية)</label>
+              <input type="number" id="headerEndPage" min="1" placeholder="الأخيرة" />
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: COVER PAGE (الورقة الأولى) -->
+        <section id="tab-cover" class="tab-pane">
+          <div class="switch-card">
+            <div>
+              <h3>إضافة / تخصيص الورقة الأولى (الغلاف)</h3>
+              <p>صمّم واجهة الكتاب بشعار الجامعة، اسم المادة، واسم التدريسي</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="coverEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="coverMode">طريقة تطبيق الورقة الأولى</label>
+              <select id="coverMode">
+                <option value="insert" selected>إضافة كورقة جديدة في البداية</option>
+                <option value="replace">استبدال الصفحة الأولى الحالية</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="coverPageSize">مقاس ورقة الغلاف</label>
+              <select id="coverPageSize">
+                <option value="a4_portrait" selected>A4 بالطول (عمودي)</option>
+                <option value="match_pdf">نفس مقاس صفحات الملف</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="button" id="btnCopyFromHeader" class="btn btn-secondary btn-sm btn-full">
+            نسخ معلومات الجامعة والشعار من الترويسة
+          </button>
+
+          <!-- Top Info Lines -->
+          <div class="section-box">
+            <div class="section-box-title">معلومات أعلى الورقة الأولى (الجامعة والكلية/القسم)</div>
+            <div class="form-group">
+              <label for="coverTopLine1">السطر الأول</label>
+              <input type="text" id="coverTopLine1" placeholder="مثال: جامعة الامام جعفر الصادق (ع) / فرع المثنى" />
+            </div>
+            <div class="form-group">
+              <label for="coverTopLine2">السطر الثاني</label>
+              <input type="text" id="coverTopLine2" placeholder="مثال: قسم هندسة تقنيات الاجهزة الطبية" />
+            </div>
+            <div class="form-group">
+              <label for="coverTopLine3">السطر الثالث (اختياري)</label>
+              <input type="text" id="coverTopLine3" placeholder="مثال: المرحلة الثانية / الدراسة الصباحية" />
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label for="coverTopFontSize">حجم خط الأعلى</label>
+                <input type="number" id="coverTopFontSize" min="9" max="24" value="13" />
+              </div>
+              <div class="form-group">
+                <label for="coverTopColor">لون نص الأعلى</label>
+                <input type="color" id="coverTopColor" value="#000000" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Cover Logo -->
+          <div class="section-box">
+            <div class="section-box-title">شعار الورقة الأولى (اللوكو)</div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="coverUseHeaderLogo" checked />
+              <span>استخدام نفس شعار الترويسة تلقائياً</span>
+            </label>
+
+            <div class="logo-upload-row mt-sm">
+              <div class="logo-preview-box" id="coverLogoPreviewBox">
+                <img id="coverLogoPreviewImg" class="hidden" alt="شعار الغلاف" />
+                <span id="coverLogoPlaceholder">شعار الغلاف</span>
+              </div>
+              <div class="logo-upload-actions">
+                <input type="file" id="coverLogoInput" accept="image/png,image/jpeg,image/webp,image/bmp" hidden />
+                <button type="button" id="btnUploadCoverLogo" class="btn btn-secondary btn-sm">
+                  رفع شعار خاص بالغلاف
+                </button>
+                <button type="button" id="btnRemoveCoverLogo" class="btn btn-danger-ghost hidden">
+                  حذف الشعار الخاص
+                </button>
+              </div>
+            </div>
+
+            <div class="grid-2 mt-sm">
+              <div class="form-group">
+                <label for="coverLogoPosition">موضع الشعار</label>
+                <select id="coverLogoPosition">
+                  <option value="left" selected>أعلى اليسار (كما في النموذج)</option>
+                  <option value="center">أعلى الوسط</option>
+                  <option value="right">أعلى اليمين</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <div class="label-row">
+                  <label for="coverLogoSize">حجم الشعار</label>
+                  <span id="coverLogoSizeVal" class="val-badge">96 pt</span>
+                </div>
+                <input type="range" id="coverLogoSize" min="45" max="180" value="96" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Course / Book Title -->
+          <div class="section-box">
+            <div class="section-box-title">عنوان الكتاب / المادة (وسط الورقة)</div>
+            <div class="form-group">
+              <label for="coverTitle">العنوان الرئيسي</label>
+              <input type="text" id="coverTitle" placeholder="مثال: C++ programming" />
+            </div>
+            <div class="form-group">
+              <label for="coverSubtitle">عنوان فرعي (اختياري)</label>
+              <input type="text" id="coverSubtitle" placeholder="مثال: محاضرات الفصل الدراسي الأول" />
+            </div>
+            <div class="grid-3">
+              <div class="form-group">
+                <label for="coverTitleFontSize">حجم العنوان</label>
+                <input type="number" id="coverTitleFontSize" min="14" max="54" value="30" />
+              </div>
+              <div class="form-group">
+                <label for="coverTitleColor">لون العنوان</label>
+                <input type="color" id="coverTitleColor" value="#000000" />
+              </div>
+              <div class="form-group">
+                <label for="coverTitleYPct">موضع عمودي %</label>
+                <input type="number" id="coverTitleYPct" min="25" max="68" value="42" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Lecturer Name & Extra Bottom Info -->
+          <div class="section-box">
+            <div class="section-box-title">اسم التدريسي ومعلومات أسفل الورقة</div>
+            <div class="form-group">
+              <label for="coverLecturer">اسم التدريسي</label>
+              <input type="text" id="coverLecturer" placeholder="مثال: م.م رنا علي ذويب" />
+            </div>
+            <div class="form-group">
+              <label for="coverExtra">معلومات إضافية (اختياري)</label>
+              <input type="text" id="coverExtra" placeholder="مثال: العام الدراسي 2026 - 2027" />
+            </div>
+            <div class="grid-3">
+              <div class="form-group">
+                <label for="coverLecturerFontSize">حجم الاسم</label>
+                <input type="number" id="coverLecturerFontSize" min="11" max="36" value="18" />
+              </div>
+              <div class="form-group">
+                <label for="coverLecturerColor">لون الاسم</label>
+                <input type="color" id="coverLecturerColor" value="#000000" />
+              </div>
+              <div class="form-group">
+                <label for="coverLecturerYPct">موضع عمودي %</label>
+                <input type="number" id="coverLecturerYPct" min="55" max="88" value="78" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Border & Background -->
+          <div class="section-box">
+            <div class="section-box-title">الإطار والخلفية</div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="coverBorderEnabled" checked />
+              <span>إظهار إطار خارجي للورقة الأولى</span>
+            </label>
+            <div class="grid-3 mt-sm">
+              <div class="form-group">
+                <label for="coverBorderColor">لون الإطار</label>
+                <input type="color" id="coverBorderColor" value="#475569" />
+              </div>
+              <div class="form-group">
+                <label for="coverBorderWidth">سماكة الإطار</label>
+                <input type="number" id="coverBorderWidth" min="0.5" max="5" step="0.5" value="1.2" />
+              </div>
+              <div class="form-group">
+                <label for="coverBgColor">لون الخلفية</label>
+                <input type="color" id="coverBgColor" value="#ffffff" />
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="btnPreviewCoverNow" class="btn btn-secondary btn-full">
+            معاينة الورقة الأولى (الغلاف) الآن
+          </button>
+        </section>
+
+        <!-- TAB 3: FOOTER + PAGE NUMBERING -->
+        <section id="tab-footer" class="tab-pane">
+          <div class="switch-card">
+            <div>
+              <h3>تفعيل تعديل التذييل والترقيم (Footer)</h3>
+              <p>مسح التذييل القديم وإضافة ترقيم صفحات تلقائي ونصوص مخصصة</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="footerEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div id="detectedFooterBox" class="detected-box hidden">
+            <div class="detected-title">تذييل متكرر تم اكتشافه في الملف:</div>
+            <div id="detectedFooterText" class="detected-text"></div>
+          </div>
+
+          <!-- Dedicated Page Numbering Card -->
+          <div class="section-box">
+            <div class="section-box-title">ترقيم الصفحات التلقائي في التذييل</div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="footerNumberingEnabled" checked />
+              <span>إضافة ترقيم تلقائي للصفحات</span>
+            </label>
+
+            <div class="grid-2 mt-sm">
+              <div class="form-group">
+                <label for="footerNumberingFormat">نمط الترقيم</label>
+                <select id="footerNumberingFormat">
+                  <option value="number_only" selected>1 , 2 , 3 (رقم فقط بدون كلمة صفحة)</option>
+                  <option value="dash_number">- 1 - , - 2 -</option>
+                  <option value="slash">1 / 50</option>
+                  <option value="page_of_total_ar">صفحة 1 من 50</option>
+                  <option value="page_of_total_en">Page 1 of 50</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="footerNumberingPosition">موضع الترقيم</label>
+                <select id="footerNumberingPosition">
+                  <option value="center" selected>وسط التذييل</option>
+                  <option value="right">يمين التذييل</option>
+                  <option value="left">يسار التذييل</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid-2 mt-sm">
+              <div class="form-group">
+                <label for="footerNumberingStart">يبدأ الترقيم من الرقم</label>
+                <input type="number" id="footerNumberingStart" min="1" value="1" />
+              </div>
+              <div class="form-group" style="justify-content: center;">
+                <label class="checkbox-row" style="margin-top: 18px;">
+                  <input type="checkbox" id="footerNumberingArabicDigits" />
+                  <span>أرقام عربية (١، ٢، ٣)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-row">
+              <input type="checkbox" id="footerCoverOld" checked />
+              <span>مسح / تغطية منطقة التذييل القديم</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label for="footerHeight">ارتفاع منطقة التذييل (pt)</label>
+              <span id="footerHeightVal" class="val-badge">45 pt</span>
+            </div>
+            <input type="range" id="footerHeight" min="24" max="150" value="45" />
+            <small class="hint">لاحظ الخط البنفسجي المتقطع أسفل معاينة الصفحة لتحديد ارتفاع التذييل.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="footerRight">نص يمين التذييل (اختياري)</label>
+            <input type="text" id="footerRight" placeholder="مثال: قسم هندسة تقنيات الاجهزة الطبية" />
+          </div>
+          <div class="form-group">
+            <label for="footerCenter">نص وسط التذييل (اختياري)</label>
+            <input type="text" id="footerCenter" placeholder="اتركه فارغاً ليظهر الترقيم التلقائي وحده بالوسط" />
+          </div>
+          <div class="form-group">
+            <label for="footerLeft">نص يسار التذييل (اختياري)</label>
+            <input type="text" id="footerLeft" placeholder="مثال: م.م رنا علي ذويب" />
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label for="footerFontSize">حجم الخط</label>
+              <input type="number" id="footerFontSize" min="7" max="24" value="10" />
+            </div>
+            <div class="form-group">
+              <label for="footerColor">لون النص</label>
+              <input type="color" id="footerColor" value="#1e293b" />
+            </div>
+            <div class="form-group">
+              <label for="footerBgColor">لون الخلفية</label>
+              <input type="color" id="footerBgColor" value="#ffffff" />
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <label class="checkbox-row">
+              <input type="checkbox" id="footerBold" />
+              <span>خط عريض</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="footerDivider" checked />
+              <span>خط فاصل</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="footerSkipFirst" />
+              <span>تجاوز صفحة 1 من الملف</span>
+            </label>
+          </div>
+
+          <div class="grid-2 mt-sm">
+            <div class="form-group">
+              <label for="footerStartPage">من صفحة</label>
+              <input type="number" id="footerStartPage" min="1" value="1" />
+            </div>
+            <div class="form-group">
+              <label for="footerEndPage">إلى صفحة (فارغ = النهاية)</label>
+              <input type="number" id="footerEndPage" min="1" placeholder="الأخيرة" />
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: LECTURER NAME / TEXT REPLACEMENT -->
+        <section id="tab-lecturer" class="tab-pane">
+          <div class="info-banner">
+            <strong>تغيير اسم التدريسي في كامل الكتاب:</strong>
+            اكتب اسم التدريسي الموجود في الملف والاسم الجديد البديل. يدعم البحث الذكي للنصوص العربية (تجاهل التشكيل والهمزات والمدّ) والإنجليزية.
+          </div>
+
+          <div id="replacementsList" class="replacements-list">
+            <!-- Replacement items dynamically rendered here -->
+          </div>
+
+          <button id="btnAddReplacement" class="btn btn-secondary btn-full" type="button">
+            + إضافة اسم أو نص آخر للاستبدال
+          </button>
+
+          <div class="divider-line"></div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="replaceFontSize">حجم خط النص الجديد (0 = تلقائي)</label>
+              <input type="number" id="replaceFontSize" min="0" max="48" value="0" />
+            </div>
+            <div class="form-group">
+              <label for="replaceColor">لون النص الجديد</label>
+              <input type="color" id="replaceColor" value="#111827" />
+            </div>
+          </div>
+
+          <label class="checkbox-row">
+            <input type="checkbox" id="replaceFuzzyArabic" checked />
+            <span>مطابقة ذكية للنصوص العربية (تجاهل التشكيل، أ/إ/آ، ة/ه، والمدّ)</span>
+          </label>
+        </section>
+
+        <!-- TAB 5: WATERMARKS -->
+        <section id="tab-watermark" class="tab-pane">
+          <div class="switch-card">
+            <div>
+              <h3>إزالة العلامات المائية</h3>
+              <p>تنظيف العلامات المائية النصية والصور المتكررة وطبقات العلامة المائية</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="watermarkEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div id="watermarkSummary" class="detected-box">
+            <div class="detected-title">نتائج فحص العلامات المائية في هذا الملف:</div>
+            <div id="watermarkSummaryBody" class="detected-text">جاري الفحص...</div>
+          </div>
+
+          <div class="wm-options-card">
+            <label class="checkbox-row">
+              <input type="checkbox" id="wmRemoveAnnotations" checked />
+              <span>إزالة تعليقات وطبقات العلامات المائية (Annotations / Artifacts / OCG)</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="wmRemoveDiagonalText" checked />
+              <span>إزالة النصوص المائلة (القطرية) أو الشفافة / الرمادية الكبيرة</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="wmRemoveXObjects" checked />
+              <span>إزالة كائنات العلامة المائية الشفافة (Transparent Form XObjects)</span>
+            </label>
+          </div>
+
+          <!-- Detected Text Watermarks -->
+          <div id="detectedWmTextsSection" class="form-group hidden">
+            <label>نصوص يُحتمل أنها علامات مائية (اضغط لإضافتها لقائمة الإزالة):</label>
+            <div id="detectedWmTextsList" class="chips-wrap"></div>
+          </div>
+
+          <!-- Custom Watermark Texts -->
+          <div class="form-group">
+            <label for="wmCustomTexts">نصوص علامة مائية محددة لإزالتها (سطر لكل نص)</label>
+            <textarea id="wmCustomTexts" rows="3" placeholder="مثال:&#10;نسخة تجريبية&#10;Confidential&#10;اسم موقع أو قناة تيليجرام"></textarea>
+            <small class="hint">تُزال هذه النصوص بدون ترك مربعات بيضاء فوق محتوى الكتاب الأصلي.</small>
+          </div>
+
+          <!-- Detected Repeated Images -->
+          <div id="detectedWmImagesSection" class="form-group hidden">
+            <label>صور متكررة في عدة صفحات (حدد الصور التي تريد إزالتها كعلامة مائية):</label>
+            <div id="detectedWmImagesList" class="wm-images-grid"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Sticky Footer Actions -->
+      <div class="controls-footer">
+        <button id="btnPreviewEdited" class="btn btn-secondary" type="button">
+          معاينة التعديلات
+        </button>
+        <button id="btnProcessDownload" class="btn btn-primary" type="button">
+          حفظ وتحميل PDF
+        </button>
+      </div>
+    </aside>
+
+    <!-- Preview Workspace -->
+    <section class="preview-panel">
+      <div class="preview-toolbar">
+        <div class="page-nav">
+          <button id="btnPrevPage" class="btn btn-icon" type="button" title="الصفحة السابقة">‹</button>
+          <div class="page-input-wrap">
+            <span>صفحة</span>
+            <input type="number" id="currentPageInput" min="1" value="1" />
+            <span>من <strong id="totalPagesLabel">1</strong></span>
+          </div>
+          <button id="btnNextPage" class="btn btn-icon" type="button" title="الصفحة التالية">›</button>
+        </div>
+
+        <div class="mode-switch">
+          <button id="btnModeOriginal" class="mode-btn active" type="button">الأصل + الحدود</button>
+          <button id="btnModeEdited" class="mode-btn" type="button">الصفحة بعد التعديل</button>
+          <button id="btnModeCover" class="mode-btn" type="button">الورقة الأولى (الغلاف)</button>
+        </div>
+
+        <div class="zoom-controls">
+          <button id="btnZoomOut" class="btn btn-icon" type="button" title="تصغير">−</button>
+          <span id="zoomLabel">100%</span>
+          <button id="btnZoomIn" class="btn btn-icon" type="button" title="تكبير">+</button>
+        </div>
+      </div>
+
+      <div class="preview-stage" id="previewStage">
+        <div class="page-canvas-wrapper" id="pageWrapper">
+          <img id="previewImage" alt="معاينة صفحة PDF" />
+          <!-- Visual Guides for Header and Footer -->
+          <div id="headerGuideOverlay" class="guide-overlay guide-header hidden">
+            <span>منطقة الترويسة</span>
+          </div>
+          <div id="footerGuideOverlay" class="guide-overlay guide-footer hidden">
+            <span>منطقة التذييل</span>
+          </div>
+          <div id="previewLoader" class="preview-loader hidden">
+            <div class="spinner"></div>
+            <span>جاري توليد المعاينة...</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="statusToast" class="status-toast hidden"></div>
+    </section>
+  </main>
+
+  <!-- Processing Modal -->
+  <div id="processingModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div id="modalLoading">
+        <div class="spinner spinner-lg"></div>
+        <h3>جاري معالجة كتاب الـ PDF...</h3>
+        <p>يتم الآن بناء الورقة الأولى وتطبيق الترويسة والتذييل واستبدال اسم التدريسي وتنظيف العلامات المائية على جميع الصفحات.</p>
+      </div>
+      <div id="modalSuccess" class="hidden">
+        <div class="success-icon">✓</div>
+        <h3>تم تعديل الكتاب بنجاح!</h3>
+        <div id="processStats" class="stats-grid"></div>
+        <div class="modal-actions">
+          <a id="btnDownloadFinal" class="btn btn-primary btn-lg" href="#" download>
+            تحميل الملف المعدّل
+          </a>
+          <button id="btnCloseModal" class="btn btn-ghost" type="button">
+            إغلاق ومتابعة التعديل
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
