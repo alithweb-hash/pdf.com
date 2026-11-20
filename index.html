@@ -7,7 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="static/styles.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Pure Client-Side PDF Libraries (No Python / No Backend Required) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 </head>
 <body>
   <!-- Top Navbar -->
@@ -24,7 +27,7 @@
       </div>
       <div>
         <h1>محرر كتب PDF الأكاديمية</h1>
-        <p class="brand-sub">إضافة الغلاف، ترويسة بـ لوكو وسط وسطرين يمين/يسار، ترقيم التذييل، استبدال التدريسي، وإزالة العلامة المائية</p>
+        <p class="brand-sub">إضافة غلاف A4، ترويسة بـ لوكو وسط وسطرين يمين/يسار، ترقيم التذييل، استبدال التدريسي، وإزالة العلامة المائية</p>
       </div>
     </div>
 
@@ -53,36 +56,36 @@
           </svg>
         </div>
         <h2>ارفع كتاب أو ملزمة الـ PDF هنا</h2>
-        <p>اسحب الملف وأفلته هنا، أو اضغط لاختيار ملف من جهازك</p>
+        <p>اسحب الملف وأفلته هنا، أو اضغط لاختيار ملف من جهازك (تتم المعالجة مباشرة في متصفحك بخصوصية وسرعة تامة)</p>
         <button id="btnSelectFile" class="btn btn-primary btn-lg" type="button">
           اختيار ملف PDF
         </button>
         <div id="uploadProgress" class="upload-progress hidden">
           <div class="spinner"></div>
-          <span>جاري رفع وتحليل ملف الـ PDF واكتشاف الترويسة والعلامات المائية...</span>
+          <span>جاري قراءة وتحليل ملف الـ PDF واكتشاف الترويسة والعلامات المائية...</span>
         </div>
       </div>
 
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon accent-rose">غ</div>
-          <h3>الورقة الأولى (الغلاف)</h3>
-          <p>إنشاء أو استبدال ورقة أولى مخصصة بشعار الجامعة، اسم المادة، اسم التدريسي، وإطار أنيق.</p>
+          <h3>الورقة الأولى (غلاف A4)</h3>
+          <p>إنشاء أو استبدال ورقة أولى بمقاس A4 عمودي بشعار الجامعة، اسم المادة، اسم التدريسي، وإطار أنيق.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon accent-blue">T</div>
           <h3>ترويسة بشعار وسطرين</h3>
-          <p>رفع شعار (لوكو) في وسط الترويسة مع كتابة بسطرين على اليمين واليسار وخط فاصل.</p>
+          <p>رفع شعار (لوكو) وسط الترويسة مع سطرين يميناً ويساراً وإزالة ذكية للترويسة القديمة.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon accent-purple">1</div>
           <h3>تذييل وترقيم الصفحات</h3>
-          <p>ترقيم تلقائي مرن (أرقام عادية أو عربية ١، ٢، ٣) مع نصوص إضافية واختيار بداية الترقيم.</p>
+          <p>ترقيم تلقائي بالأرقام فقط (1، 2، 3 أو أرقام عربية ١، ٢، ٣) مع اختيار موضع وبداية الترقيم.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon accent-emerald">أ</div>
           <h3>اسم التدريسي والعلامة المائية</h3>
-          <p>استبدال اسم التدريسي في كل الصفحات وكشف وإزالة العلامات المائية النصية والصور تلقائياً.</p>
+          <p>استبدال اسم التدريسي في كل الصفحات وكشف وإزالة العلامات المائية النصية والمائلة والفاتحة.</p>
         </div>
       </div>
     </div>
@@ -119,7 +122,7 @@
       <!-- Tab Panels Container -->
       <div class="tabs-content">
 
-        <!-- TAB 1: HEADER (2 lines Right + Center Logo + 2 lines Left) -->
+        <!-- TAB 1: HEADER -->
         <section id="tab-header" class="tab-pane active">
           <div class="switch-card">
             <div>
@@ -157,7 +160,7 @@
               </div>
             </div>
 
-            <div class="form-group mt-sm" id="headerLogoSizeWrap">
+            <div class="form-group mt-sm">
               <div class="label-row">
                 <label for="headerLogoSize">حجم الشعار (بالنقطة pt)</label>
                 <span id="headerLogoSizeVal" class="val-badge">54 pt</span>
@@ -268,14 +271,14 @@
             <div class="form-group mt-sm">
               <label for="headerStartFromText">أو ابدأ الصفحة الأولى من عبارة محددة (اختياري)</label>
               <input type="text" id="headerStartFromText" placeholder="تلقائي — أو اكتب بداية التعريف مثل: متسلسلة فورييه" />
-              <small class="hint">عند تركه فارغاً يُزيل النظام تلقائياً أي ترويسة قديمة أو سطر رقم المحاضرة وخطه الفاصل حتى بداية أول عنوان/تعريف.</small>
+              <small class="hint">عند تركه فارغاً يُزيل تلقائياً أي ترويسة قديمة حتى بداية أول عنوان/تعريف.</small>
             </div>
           </div>
 
           <div class="form-group">
             <label class="checkbox-row">
-              <input type="checkbox" id="headerSkipFirst" checked />
-              <span>لا تبدأ الترويسة من أول صفحة (تجاوز صفحة 1 من الملف)</span>
+              <input type="checkbox" id="headerSkipFirst" />
+              <span>تجاوز الصفحة الأولى من الملف المرفوع (ورقة الغلاف المضافة تُستثنى تلقائياً)</span>
             </label>
           </div>
 
@@ -291,12 +294,12 @@
           </div>
         </section>
 
-        <!-- TAB 2: COVER PAGE (الورقة الأولى) -->
+        <!-- TAB 2: COVER PAGE (الورقة الأولى A4) -->
         <section id="tab-cover" class="tab-pane">
           <div class="switch-card">
             <div>
               <h3>إضافة / تخصيص الورقة الأولى (الغلاف)</h3>
-              <p>صمّم واجهة الكتاب بشعار الجامعة، اسم المادة، واسم التدريسي</p>
+              <p>ورقة A4 عمودية بشعار الجامعة، اسم المادة، واسم التدريسي</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="coverEnabled" />
@@ -482,7 +485,7 @@
           <div class="switch-card">
             <div>
               <h3>تفعيل تعديل التذييل والترقيم (Footer)</h3>
-              <p>مسح التذييل القديم وإضافة ترقيم صفحات تلقائي ونصوص مخصصة</p>
+              <p>ترقيم صفحات تلقائي بالأرقام فقط مع إمكانية إضافة نصوص اختيارية</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="footerEnabled" />
@@ -556,15 +559,15 @@
 
           <div class="form-group">
             <label for="footerRight">نص يمين التذييل (اختياري)</label>
-            <input type="text" id="footerRight" placeholder="مثال: قسم هندسة تقنيات الاجهزة الطبية" />
+            <input type="text" id="footerRight" placeholder="اتركه فارغاً ليظهر الترقيم فقط" />
           </div>
           <div class="form-group">
             <label for="footerCenter">نص وسط التذييل (اختياري)</label>
-            <input type="text" id="footerCenter" placeholder="اتركه فارغاً ليظهر الترقيم التلقائي وحده بالوسط" />
+            <input type="text" id="footerCenter" placeholder="اتركه فارغاً ليظهر الترقيم وحده بالوسط" />
           </div>
           <div class="form-group">
             <label for="footerLeft">نص يسار التذييل (اختياري)</label>
-            <input type="text" id="footerLeft" placeholder="مثال: م.م رنا علي ذويب" />
+            <input type="text" id="footerLeft" placeholder="اتركه فارغاً ليظهر الترقيم فقط" />
           </div>
 
           <div class="grid-3">
@@ -588,12 +591,12 @@
               <span>خط عريض</span>
             </label>
             <label class="checkbox-row">
-              <input type="checkbox" id="footerDivider" checked />
+              <input type="checkbox" id="footerDivider" />
               <span>خط فاصل</span>
             </label>
             <label class="checkbox-row">
               <input type="checkbox" id="footerSkipFirst" />
-              <span>تجاوز صفحة 1 من الملف</span>
+              <span>تجاوز صفحة 1</span>
             </label>
           </div>
 
@@ -616,9 +619,7 @@
             اكتب اسم التدريسي الموجود في الملف والاسم الجديد البديل. يدعم البحث الذكي للنصوص العربية (تجاهل التشكيل والهمزات والمدّ) والإنجليزية.
           </div>
 
-          <div id="replacementsList" class="replacements-list">
-            <!-- Replacement items dynamically rendered here -->
-          </div>
+          <div id="replacementsList" class="replacements-list"></div>
 
           <button id="btnAddReplacement" class="btn btn-secondary btn-full" type="button">
             + إضافة اسم أو نص آخر للاستبدال
@@ -648,7 +649,7 @@
           <div class="switch-card">
             <div>
               <h3>إزالة العلامات المائية</h3>
-              <p>تنظيف العلامات المائية النصية والصور المتكررة وطبقات العلامة المائية</p>
+              <p>تنظيف العلامات المائية النصية والمائلة والكائنات الشفافة والفاتحة</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="watermarkEnabled" />
@@ -664,7 +665,7 @@
           <div class="wm-options-card">
             <label class="checkbox-row">
               <input type="checkbox" id="wmRemoveAnnotations" checked />
-              <span>إزالة تعليقات وطبقات العلامات المائية (Annotations / Artifacts / OCG)</span>
+              <span>إزالة تعليقات وطبقات العلامات المائية (Annotations / Artifacts)</span>
             </label>
             <label class="checkbox-row">
               <input type="checkbox" id="wmRemoveDiagonalText" checked />
@@ -673,6 +674,10 @@
             <label class="checkbox-row">
               <input type="checkbox" id="wmRemoveXObjects" checked />
               <span>إزالة كائنات العلامة المائية الشفافة (Transparent Form XObjects)</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="wmWashLightImages" />
+              <span>تنظيف قوي للعلامات المائية الفاتحة (للصور والملفات المصوّرة)</span>
             </label>
           </div>
 
@@ -685,14 +690,7 @@
           <!-- Custom Watermark Texts -->
           <div class="form-group">
             <label for="wmCustomTexts">نصوص علامة مائية محددة لإزالتها (سطر لكل نص)</label>
-            <textarea id="wmCustomTexts" rows="3" placeholder="مثال:&#10;نسخة تجريبية&#10;Confidential&#10;اسم موقع أو قناة تيليجرام"></textarea>
-            <small class="hint">تُزال هذه النصوص بدون ترك مربعات بيضاء فوق محتوى الكتاب الأصلي.</small>
-          </div>
-
-          <!-- Detected Repeated Images -->
-          <div id="detectedWmImagesSection" class="form-group hidden">
-            <label>صور متكررة في عدة صفحات (حدد الصور التي تريد إزالتها كعلامة مائية):</label>
-            <div id="detectedWmImagesList" class="wm-images-grid"></div>
+            <textarea id="wmCustomTexts" rows="3" placeholder="مثال:&#10;نسخة تجريبية&#10;Confidential&#10;اسم موقع أو قناة"></textarea>
           </div>
         </section>
       </div>
@@ -737,7 +735,6 @@
       <div class="preview-stage" id="previewStage">
         <div class="page-canvas-wrapper" id="pageWrapper">
           <img id="previewImage" alt="معاينة صفحة PDF" />
-          <!-- Visual Guides for Header and Footer -->
           <div id="headerGuideOverlay" class="guide-overlay guide-header hidden">
             <span>منطقة الترويسة</span>
           </div>
@@ -761,7 +758,7 @@
       <div id="modalLoading">
         <div class="spinner spinner-lg"></div>
         <h3>جاري معالجة كتاب الـ PDF...</h3>
-        <p>يتم الآن بناء الورقة الأولى وتطبيق الترويسة والتذييل واستبدال اسم التدريسي وتنظيف العلامات المائية على جميع الصفحات.</p>
+        <p id="modalProgressText">يتم الآن بناء الورقة الأولى وتطبيق الترويسة والتذييل واستبدال اسم التدريسي وتنظيف العلامات المائية...</p>
       </div>
       <div id="modalSuccess" class="hidden">
         <div class="success-icon">✓</div>
@@ -779,6 +776,7 @@
     </div>
   </div>
 
-  <script src="static/app.js"></script>
+  <script src="pdf-engine.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

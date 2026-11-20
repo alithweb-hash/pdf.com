@@ -1,21 +1,25 @@
-// State
+// Pure Client-Side Academic PDF Editor Controller (Zero Python / Zero Server)
+
+if (typeof pdfjsLib !== "undefined") {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+
+// Application State
 const state = {
-  fileId: null,
+  pdfBytes: null, // Uint8Array of uploaded PDF
+  pdfJsDoc: null, // Loaded pdf.js document
   fileName: "",
   pageCount: 1,
   currentPage: 1,
-  pageSizes: [], // [{ width, height }, ...] in points
+  pageSizes: [],
   zoom: 1.0,
   previewMode: "original", // "original" | "edited" | "cover"
-  selectedImageXrefs: new Set(),
-  analysis: null,
-  headerLogoId: null,
-  headerLogoUrl: null,
-  coverLogoId: null,
-  coverLogoUrl: null,
+  headerLogoUrl: null, // Data URL
+  coverLogoUrl: null, // Data URL
+  lastDownloadUrl: null,
 };
 
-// DOM helper
 const $ = (id) => document.getElementById(id);
 
 const uploadSection = $("uploadSection");
@@ -53,6 +57,7 @@ const btnProcessDownload = $("btnProcessDownload");
 
 const processingModal = $("processingModal");
 const modalLoading = $("modalLoading");
+const modalProgressText = $("modalProgressText");
 const modalSuccess = $("modalSuccess");
 const processStats = $("processStats");
 const btnDownloadFinal = $("btnDownloadFinal");
@@ -70,7 +75,7 @@ function showToast(msg, duration = 3200) {
 }
 
 // ==========================================
-// Upload & Drag/Drop Handling
+// PDF File Selection & Local Analysis
 // ==========================================
 btnSelectFile.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -92,12 +97,12 @@ dropZone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropZone.classList.remove("drag-over");
   const file = e.dataTransfer.files?.[0];
-  if (file) handleFileUpload(file);
+  if (file) handleFileSelected(file);
 });
 
 pdfInput.addEventListener("change", () => {
   const file = pdfInput.files?.[0];
-  if (file) handleFileUpload(file);
+  if (file) handleFileSelected(file);
   pdfInput.value = "";
 });
 
@@ -105,10 +110,16 @@ btnNewFile.addEventListener("click", () => {
   editorSection.classList.add("hidden");
   fileBadgeArea.classList.add("hidden");
   uploadSection.classList.remove("hidden");
-  state.fileId = null;
+  if (state.pdfJsDoc) {
+    try {
+      state.pdfJsDoc.destroy();
+    } catch (_) {}
+  }
+  state.pdfBytes = null;
+  state.pdfJsDoc = null;
 });
 
-async function handleFileUpload(file) {
+async function handleFileSelected(file) {
   if (!file.name.toLowerCase().endsWith(".pdf")) {
     alert("يرجى اختيار ملف بصيغة PDF فقط.");
     return;
@@ -117,52 +128,40 @@ async function handleFileUpload(file) {
   uploadProgress.classList.remove("hidden");
   btnSelectFile.disabled = true;
 
-  const formData = new FormData();
-  formData.append("file", file);
-
   try {
-    const res = await fetch("api/upload", {
-      method: "POST",
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "فشل رفع وتحليل الملف");
-    }
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const result = await window.PdfStudioEngine.analyzePdf(bytes);
 
-    const data = await res.json();
-    initEditorWithFile(data);
+    state.pdfBytes = bytes;
+    state.pdfJsDoc = result.pdfJsDoc;
+    state.fileName = file.name;
+    state.pageCount = result.pageCount;
+    state.pageSizes = result.pageSizes;
+    state.currentPage = 1;
+    state.previewMode = "original";
+
+    initEditorUI(result);
   } catch (err) {
-    alert("حدث خطأ: " + err.message);
+    alert("تعذر قراءة ملف الـ PDF: " + (err?.message || err));
   } finally {
     uploadProgress.classList.add("hidden");
     btnSelectFile.disabled = false;
   }
 }
 
-function initEditorWithFile(data) {
-  state.fileId = data.file_id;
-  state.fileName = data.filename;
-  state.pageCount = data.page_count;
-  state.pageSizes = data.page_sizes || [];
-  state.currentPage = 1;
-  state.previewMode = "original";
-  state.analysis = data.analysis;
-  state.selectedImageXrefs = new Set();
-
-  // Navbar info
-  navFileName.textContent = data.filename;
-  navPageCount.textContent = `${data.page_count} صفحة`;
+function initEditorUI(data) {
+  navFileName.textContent = state.fileName;
+  navPageCount.textContent = `${data.pageCount} صفحة`;
   fileBadgeArea.classList.remove("hidden");
 
-  // Page controls
-  totalPagesLabel.textContent = data.page_count;
-  currentPageInput.max = data.page_count;
+  totalPagesLabel.textContent = data.pageCount;
+  currentPageInput.max = data.pageCount;
   currentPageInput.value = 1;
-  $("headerEndPage").max = data.page_count;
-  $("footerEndPage").max = data.page_count;
+  $("headerEndPage").max = data.pageCount;
+  $("footerEndPage").max = data.pageCount;
 
-  // Populate auto-detected header & footer
+  // Detected Header & Footer
   const headerDetected = data.analysis?.detected_header || "";
   if (headerDetected) {
     $("detectedHeaderText").textContent = headerDetected;
@@ -179,14 +178,11 @@ function initEditorWithFile(data) {
     $("detectedFooterBox").classList.add("hidden");
   }
 
-  // Populate watermark analysis
   populateWatermarkAnalysis(data.analysis?.watermarks || {});
 
-  // Initialize lecturer replacements list (one default row)
   replacementsList.innerHTML = "";
   addReplacementRow();
 
-  // Switch screens
   uploadSection.classList.add("hidden");
   editorSection.classList.remove("hidden");
 
@@ -196,20 +192,15 @@ function initEditorWithFile(data) {
 }
 
 // ==========================================
-// Logo Upload Handlers (Header & Cover)
+// Local Logo Upload (100% Client-Side FileReader)
 // ==========================================
-async function uploadLogoImage(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  const res = await fetch("api/upload-logo", {
-    method: "POST",
-    body: formData,
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("تعذر قراءة صورة الشعار"));
+    reader.readAsDataURL(file);
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "فشل رفع صورة الشعار");
-  }
-  return await res.json();
 }
 
 function refreshCoverLogoPreview() {
@@ -217,7 +208,7 @@ function refreshCoverLogoPreview() {
   const placeholder = $("coverLogoPlaceholder");
   const removeBtn = $("btnRemoveCoverLogo");
 
-  if (state.coverLogoId && state.coverLogoUrl) {
+  if (state.coverLogoUrl) {
     imgEl.src = state.coverLogoUrl;
     imgEl.classList.remove("hidden");
     placeholder.classList.add("hidden");
@@ -241,11 +232,9 @@ $("headerLogoInput").addEventListener("change", async () => {
   $("headerLogoInput").value = "";
   if (!file) return;
   try {
-    const data = await uploadLogoImage(file);
-    state.headerLogoId = data.logo_id;
-    state.headerLogoUrl = data.preview_url;
-
-    $("headerLogoPreviewImg").src = data.preview_url;
+    const dataUrl = await readFileAsDataUrl(file);
+    state.headerLogoUrl = dataUrl;
+    $("headerLogoPreviewImg").src = dataUrl;
     $("headerLogoPreviewImg").classList.remove("hidden");
     $("headerLogoPlaceholder").classList.add("hidden");
     $("btnRemoveHeaderLogo").classList.remove("hidden");
@@ -265,7 +254,6 @@ $("headerLogoInput").addEventListener("change", async () => {
 });
 
 $("btnRemoveHeaderLogo").addEventListener("click", () => {
-  state.headerLogoId = null;
   state.headerLogoUrl = null;
   $("headerLogoPreviewImg").src = "";
   $("headerLogoPreviewImg").classList.add("hidden");
@@ -282,9 +270,8 @@ $("coverLogoInput").addEventListener("change", async () => {
   $("coverLogoInput").value = "";
   if (!file) return;
   try {
-    const data = await uploadLogoImage(file);
-    state.coverLogoId = data.logo_id;
-    state.coverLogoUrl = data.preview_url;
+    const dataUrl = await readFileAsDataUrl(file);
+    state.coverLogoUrl = dataUrl;
     $("coverUseHeaderLogo").checked = false;
     if (!$("coverEnabled").checked) $("coverEnabled").checked = true;
     refreshCoverLogoPreview();
@@ -296,7 +283,6 @@ $("coverLogoInput").addEventListener("change", async () => {
 });
 
 $("btnRemoveCoverLogo").addEventListener("click", () => {
-  state.coverLogoId = null;
   state.coverLogoUrl = null;
   refreshCoverLogoPreview();
 });
@@ -311,10 +297,10 @@ $("btnCopyFromHeader").addEventListener("click", () => {
   const left1 = $("headerLeftLine1").value.trim();
   const left2 = $("headerLeftLine2").value.trim();
   if (left1 && !$("coverTitle").value.trim()) {
-    $("coverTitle").value = left1.replace(/^المادة\s*:\s*/i, "");
+    $("coverTitle").value = left1.replace(/^(?:اسم\s*)?المادة\s*:\s*/i, "");
   }
   if (left2 && !$("coverLecturer").value.trim()) {
-    $("coverLecturer").value = left2.replace(/^التدريسي\s*:\s*/i, "");
+    $("coverLecturer").value = left2.replace(/^(?:اسم\s*)?التدريسي\s*:\s*/i, "");
   }
 
   $("coverUseHeaderLogo").checked = true;
@@ -341,24 +327,21 @@ function populateWatermarkAnalysis(wm) {
   const annCount = wm.annotation_count || 0;
   const diagCount = wm.diagonal_text_count || 0;
   const xobjCount = wm.transparent_xobject_count || 0;
-  const repeatedImgs = wm.repeated_images || [];
   const detectedTexts = wm.text_candidates || [];
 
   if (annCount > 0) parts.push(`• ${annCount} تعليق/طبقة علامة مائية`);
   if (diagCount > 0) parts.push(`• ${diagCount} نص مائل أو شفاف/كبير`);
   if (xobjCount > 0) parts.push(`• ${xobjCount} كائن شفاف (Form XObject)`);
-  if (repeatedImgs.length > 0) parts.push(`• ${repeatedImgs.length} صورة متكررة عبر الصفحات`);
 
   if (parts.length > 0) {
     $("watermarkSummaryBody").innerHTML = parts.join("<br />");
     $("watermarkEnabled").checked = true;
   } else {
     $("watermarkSummaryBody").textContent =
-      "لم يتم اكتشاف علامات مائية واضحة تلقائياً، ولكن يمكنك تفعيل الإزالة أو كتابة نص علامة مائية محدد بالأسفل.";
+      "لم يتم اكتشاف علامات مائية واضحة تلقائياً، ولكن يمكنك تفعيل الإزالة أو خيار تنظيف العلامات المائية الفاتحة أو كتابة نص محدد بالأسفل.";
     $("watermarkEnabled").checked = false;
   }
 
-  // Detected watermark text chips
   const textsSec = $("detectedWmTextsSection");
   const textsList = $("detectedWmTextsList");
   textsList.innerHTML = "";
@@ -371,10 +354,7 @@ function populateWatermarkAnalysis(wm) {
       btn.textContent = `+ ${txt}`;
       btn.addEventListener("click", () => {
         const ta = $("wmCustomTexts");
-        const lines = ta.value
-          .split("\n")
-          .map((l) => l.trim())
-          .filter(Boolean);
+        const lines = ta.value.split("\n").map((l) => l.trim()).filter(Boolean);
         if (!lines.includes(txt)) {
           lines.push(txt);
           ta.value = lines.join("\n");
@@ -387,55 +367,6 @@ function populateWatermarkAnalysis(wm) {
     });
   } else {
     textsSec.classList.add("hidden");
-  }
-
-  // Repeated Images cards
-  const imgsSec = $("detectedWmImagesSection");
-  const imgsList = $("detectedWmImagesList");
-  imgsList.innerHTML = "";
-  if (repeatedImgs.length > 0) {
-    imgsSec.classList.remove("hidden");
-    repeatedImgs.forEach((img) => {
-      const card = document.createElement("div");
-      card.className = "wm-image-card";
-      if (img.likely_watermark) {
-        state.selectedImageXrefs.add(img.xref);
-        card.classList.add("selected");
-      }
-
-      card.innerHTML = `
-        <div class="wm-thumb-wrap">
-          ${img.thumbnail ? `<img src="${img.thumbnail}" alt="صورة متكررة" />` : "<span>صورة</span>"}
-        </div>
-        <div class="wm-img-meta">
-          <span>تتكرر في ${img.page_count} صفحة</span>
-          <strong>${img.width}×${img.height}</strong>
-        </div>
-        <div class="wm-img-meta">
-          <span>${img.likely_watermark ? "يُرجح أنها علامة مائية" : "صورة متكررة"}</span>
-          <span class="wm-sel-tag">${img.likely_watermark ? "ستُحذف ✓" : "اضغط للحذف"}</span>
-        </div>
-      `;
-
-      card.addEventListener("click", () => {
-        const tag = card.querySelector(".wm-sel-tag");
-        if (state.selectedImageXrefs.has(img.xref)) {
-          state.selectedImageXrefs.delete(img.xref);
-          card.classList.remove("selected");
-          tag.textContent = "اضغط للحذف";
-        } else {
-          state.selectedImageXrefs.add(img.xref);
-          card.classList.add("selected");
-          tag.textContent = "ستُحذف ✓";
-          $("watermarkEnabled").checked = true;
-        }
-        updateTabIndicators();
-      });
-
-      imgsList.appendChild(card);
-    });
-  } else {
-    imgsSec.classList.add("hidden");
   }
 }
 
@@ -461,7 +392,6 @@ function updateTabIndicators() {
   updateGuideOverlays();
 }
 
-// Sliders & Switches
 [
   "headerEnabled",
   "coverEnabled",
@@ -499,7 +429,6 @@ $("footerHeight").addEventListener("input", (e) => {
   updateTabIndicators();
 });
 
-// Auto-enable tabs when user types content
 ["headerRightLine1", "headerRightLine2", "headerLeftLine1", "headerLeftLine2", "headerCenter"].forEach((id) => {
   $(id).addEventListener("input", () => {
     if ($(id).value.trim() && !$("headerEnabled").checked) {
@@ -545,10 +474,8 @@ let replacementCounter = 0;
 
 function addReplacementRow(oldVal = "", newVal = "") {
   replacementCounter += 1;
-  const idx = replacementCounter;
   const card = document.createElement("div");
   card.className = "replacement-card";
-  card.dataset.idx = idx;
 
   card.innerHTML = `
     <div class="replacement-card-head">
@@ -580,20 +507,15 @@ function addReplacementRow(oldVal = "", newVal = "") {
 
   searchBtn.addEventListener("click", async () => {
     const query = oldInput.value.trim();
-    if (!query || !state.fileId) return;
+    if (!query || !state.pdfJsDoc) return;
     searchBtn.disabled = true;
     searchBtn.textContent = "...";
     try {
-      const res = await fetch("api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          file_id: state.fileId,
-          query,
-          fuzzy_arabic: $("replaceFuzzyArabic").checked,
-        }),
-      });
-      const data = await res.json();
+      const data = await window.PdfStudioEngine.searchTextInPdf(
+        state.pdfJsDoc,
+        query,
+        $("replaceFuzzyArabic").checked
+      );
       matchResult.classList.remove("hidden");
       if (data.total_matches > 0) {
         const samplePages = data.pages.slice(0, 8).join("، ");
@@ -629,9 +551,7 @@ function getReplacements() {
   replacementsList.querySelectorAll(".replacement-card").forEach((card) => {
     const oldText = card.querySelector(".rep-old").value.trim();
     const newText = card.querySelector(".rep-new").value.trim();
-    if (oldText) {
-      list.push({ old_text: oldText, new_text: newText });
-    }
+    if (oldText) list.push({ old_text: oldText, new_text: newText });
   });
   return list;
 }
@@ -664,7 +584,6 @@ function buildOptionsPayload() {
       top_font_size: Number($("coverTopFontSize").value) || 13,
       top_color: $("coverTopColor").value,
       use_header_logo: $("coverUseHeaderLogo").checked,
-      logo_id: state.coverLogoId,
       logo_position: $("coverLogoPosition").value,
       logo_size: Number($("coverLogoSize").value) || 96,
       title: $("coverTitle").value,
@@ -688,7 +607,6 @@ function buildOptionsPayload() {
       smart_clean_old: $("headerSmartCleanOld").checked,
       start_from_text: $("headerStartFromText").value,
       height: Number($("headerHeight").value) || 76,
-      logo_id: state.headerLogoId,
       logo_size: Number($("headerLogoSize").value) || 54,
       right_line1: $("headerRightLine1").value,
       right_line2: $("headerRightLine2").value,
@@ -739,8 +657,8 @@ function buildOptionsPayload() {
       remove_annotations: $("wmRemoveAnnotations").checked,
       remove_diagonal_text: $("wmRemoveDiagonalText").checked,
       remove_xobjects: $("wmRemoveXObjects").checked,
+      wash_light_images: $("wmWashLightImages").checked,
       custom_texts: customWmTexts,
-      image_xrefs: Array.from(state.selectedImageXrefs),
     },
   };
 }
@@ -753,10 +671,7 @@ function updateGuideOverlays() {
   const pageSize = state.pageSizes[state.currentPage - 1] || { width: 595, height: 842 };
   const pageHeightPt = pageSize.height || 842;
 
-  const showHeader = showGuides && $("headerEnabled").checked;
-  const showFooter = showGuides && $("footerEnabled").checked;
-
-  if (showHeader) {
+  if (showGuides && $("headerEnabled").checked) {
     const pct = Math.min(45, (Number($("headerHeight").value) / pageHeightPt) * 100);
     headerGuideOverlay.style.height = `${pct}%`;
     headerGuideOverlay.classList.remove("hidden");
@@ -764,7 +679,7 @@ function updateGuideOverlays() {
     headerGuideOverlay.classList.add("hidden");
   }
 
-  if (showFooter) {
+  if (showGuides && $("footerEnabled").checked) {
     const pct = Math.min(45, (Number($("footerHeight").value) / pageHeightPt) * 100);
     footerGuideOverlay.style.height = `${pct}%`;
     footerGuideOverlay.classList.remove("hidden");
@@ -786,52 +701,51 @@ function applyZoom() {
   zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
 }
 
+async function renderOriginalPageDataUrl(pageNumber) {
+  const page = await state.pdfJsDoc.getPage(pageNumber);
+  const vp = page.getViewport({ scale: 1.8 });
+  const c = document.createElement("canvas");
+  c.width = Math.round(vp.width);
+  c.height = Math.round(vp.height);
+  await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+  return c.toDataURL("image/png");
+}
+
 async function loadCurrentPagePreview() {
-  if (!state.fileId) return;
+  if (!state.pdfJsDoc || !state.pdfBytes) return;
   previewLoader.classList.remove("hidden");
 
   try {
-    let blob;
+    let dataUrl;
     if (state.previewMode === "original") {
-      const res = await fetch(`api/page-image/${state.fileId}/${state.currentPage}`);
-      if (!res.ok) throw new Error("فشل عرض الصفحة");
-      blob = await res.blob();
+      dataUrl = await renderOriginalPageDataUrl(state.currentPage);
     } else if (state.previewMode === "cover") {
-      const res = await fetch("api/preview-cover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          file_id: state.fileId,
-          page_number: 0,
-          options: buildOptionsPayload(),
-        }),
-      });
-      if (!res.ok) throw new Error("فشل توليد معاينة الغلاف");
-      blob = await res.blob();
+      const res = await window.PdfStudioEngine.processPdfBytes(
+        state.pdfBytes,
+        state.pdfJsDoc,
+        buildOptionsPayload(),
+        { headerLogoUrl: state.headerLogoUrl, coverLogoUrl: state.coverLogoUrl },
+        0
+      );
+      dataUrl = res.previewDataUrl;
     } else {
-      const res = await fetch("api/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          file_id: state.fileId,
-          page_number: state.currentPage,
-          options: buildOptionsPayload(),
-        }),
-      });
-      if (!res.ok) throw new Error("فشل توليد المعاينة");
-      blob = await res.blob();
+      const res = await window.PdfStudioEngine.processPdfBytes(
+        state.pdfBytes,
+        state.pdfJsDoc,
+        buildOptionsPayload(),
+        { headerLogoUrl: state.headerLogoUrl, coverLogoUrl: state.coverLogoUrl },
+        state.currentPage
+      );
+      dataUrl = res.previewDataUrl;
     }
 
-    const url = URL.createObjectURL(blob);
-    const oldSrc = previewImage.src;
     previewImage.onload = () => {
-      if (oldSrc && oldSrc.startsWith("blob:")) URL.revokeObjectURL(oldSrc);
       applyZoom();
       updateGuideOverlays();
     };
-    previewImage.src = url;
+    previewImage.src = dataUrl;
   } catch (err) {
-    showToast(err.message);
+    showToast("حدث خطأ في المعاينة: " + (err?.message || err));
   } finally {
     previewLoader.classList.add("hidden");
   }
@@ -908,60 +822,62 @@ btnZoomOut.addEventListener("click", () => {
 });
 
 // ==========================================
-// Full PDF Processing & Download
+// Full PDF Processing & Browser Download
 // ==========================================
 btnProcessDownload.addEventListener("click", async () => {
-  if (!state.fileId) return;
+  if (!state.pdfBytes || !state.pdfJsDoc) return;
 
   processingModal.classList.remove("hidden");
   modalLoading.classList.remove("hidden");
   modalSuccess.classList.add("hidden");
+  modalProgressText.textContent = "جاري تجهيز الصفحات وتطبيق التعديلات...";
 
   try {
-    const res = await fetch("api/process", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        file_id: state.fileId,
-        options: buildOptionsPayload(),
-      }),
-    });
+    const { pdfBytes, stats } = await window.PdfStudioEngine.processPdfBytes(
+      state.pdfBytes,
+      state.pdfJsDoc,
+      buildOptionsPayload(),
+      { headerLogoUrl: state.headerLogoUrl, coverLogoUrl: state.coverLogoUrl },
+      null,
+      (done, total) => {
+        modalProgressText.textContent = `جاري معالجة الصفحة ${done} من ${total}...`;
+      }
+    );
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "فشلت معالجة الملف");
-    }
+    if (state.lastDownloadUrl) URL.revokeObjectURL(state.lastDownloadUrl);
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    state.lastDownloadUrl = URL.createObjectURL(blob);
 
-    const data = await res.json();
-    const s = data.stats || {};
+    const stem = state.fileName.replace(/\.pdf$/i, "");
+    const outName = `${stem}_معدل.pdf`;
 
     processStats.innerHTML = `
       <div class="stat-item">
-        <div class="stat-val">${s.pages_processed ?? state.pageCount}</div>
+        <div class="stat-val">${stats.pages_processed}</div>
         <div class="stat-lbl">إجمالي صفحات الملف النهائي</div>
       </div>
       <div class="stat-item">
-        <div class="stat-val">${s.headers_updated ?? 0} / ${s.footers_updated ?? 0}</div>
+        <div class="stat-val">${stats.headers_updated} / ${stats.footers_updated}</div>
         <div class="stat-lbl">ترويسة / تذييل وترقيم</div>
       </div>
       <div class="stat-item">
-        <div class="stat-val">${s.text_replacements ?? 0}</div>
+        <div class="stat-val">${stats.text_replacements}</div>
         <div class="stat-lbl">استبدال لاسم التدريسي/النص</div>
       </div>
       <div class="stat-item">
-        <div class="stat-val">${s.watermarks_removed ?? 0}</div>
+        <div class="stat-val">${stats.watermarks_removed}</div>
         <div class="stat-lbl">عناصر علامة مائية أُزيلت</div>
       </div>
     `;
 
-    btnDownloadFinal.href = data.download_url;
-    btnDownloadFinal.download = data.output_filename;
+    btnDownloadFinal.href = state.lastDownloadUrl;
+    btnDownloadFinal.download = outName;
 
     modalLoading.classList.add("hidden");
     modalSuccess.classList.remove("hidden");
   } catch (err) {
     processingModal.classList.add("hidden");
-    alert("حدث خطأ أثناء المعالجة: " + err.message);
+    alert("حدث خطأ أثناء معالجة الملف: " + (err?.message || err));
   }
 });
 
