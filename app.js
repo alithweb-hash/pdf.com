@@ -121,7 +121,7 @@ async function handleFileUpload(file) {
   formData.append("file", file);
 
   try {
-    const res = await fetch("/api/upload", {
+    const res = await fetch("api/upload", {
       method: "POST",
       body: formData,
     });
@@ -201,7 +201,7 @@ function initEditorWithFile(data) {
 async function uploadLogoImage(file) {
   const formData = new FormData();
   formData.append("file", file);
-  const res = await fetch("/api/upload-logo", {
+  const res = await fetch("api/upload-logo", {
     method: "POST",
     body: formData,
   });
@@ -584,7 +584,7 @@ function addReplacementRow(oldVal = "", newVal = "") {
     searchBtn.disabled = true;
     searchBtn.textContent = "...";
     try {
-      const res = await fetch("/api/search", {
+      const res = await fetch("api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -793,11 +793,11 @@ async function loadCurrentPagePreview() {
   try {
     let blob;
     if (state.previewMode === "original") {
-      const res = await fetch(`/api/page-image/${state.fileId}/${state.currentPage}`);
+      const res = await fetch(`api/page-image/${state.fileId}/${state.currentPage}`);
       if (!res.ok) throw new Error("فشل عرض الصفحة");
       blob = await res.blob();
     } else if (state.previewMode === "cover") {
-      const res = await fetch("/api/preview-cover", {
+      const res = await fetch("api/preview-cover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -809,7 +809,7 @@ async function loadCurrentPagePreview() {
       if (!res.ok) throw new Error("فشل توليد معاينة الغلاف");
       blob = await res.blob();
     } else {
-      const res = await fetch("/api/preview", {
+      const res = await fetch("api/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -918,7 +918,7 @@ btnProcessDownload.addEventListener("click", async () => {
   modalSuccess.classList.add("hidden");
 
   try {
-    const res = await fetch("/api/process", {
+    const res = await fetch("api/process", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

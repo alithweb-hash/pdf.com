@@ -1,0 +1,1 @@
+Place Arabic Regular & Bold .ttf fonts here (e.g., Cairo-Regular.ttf, Cairo-Bold.ttf or arial.ttf, arialbd.ttf) for Linux servers.
